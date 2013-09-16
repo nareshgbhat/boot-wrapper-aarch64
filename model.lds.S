@@ -11,7 +11,10 @@ OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH(aarch64)
 TARGET(binary)
 
-INPUT(./boot.o)
+INPUT(./BOOT)
+#ifdef XEN
+INPUT(XEN)
+#endif
 INPUT(KERNEL)
 INPUT(./fdt.dtb)
 
@@ -22,10 +25,16 @@ INPUT(FILESYSTEM)
 SECTIONS
 {
 	. = PHYS_OFFSET;
-	.text : { boot.o }
+	.text : { BOOT }
 	. = PHYS_OFFSET + MBOX_OFFSET;
 	mbox = .;
 	.mbox : { QUAD(0x0) }
+
+#ifdef XEN
+	. = PHYS_OFFSET + XEN_OFFSET;
+	xen = .;
+	.xen : { XEN }
+#endif
 	. = PHYS_OFFSET + KERNEL_OFFSET;
 	kernel = .;
 	.kernel : { KERNEL }

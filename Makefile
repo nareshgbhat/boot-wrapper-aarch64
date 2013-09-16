@@ -19,10 +19,13 @@ CPPFLAGS	+= $(INITRD_FLAGS)
 
 BOOTLOADER	:= boot.S
 MBOX_OFFSET	:= 0xfff8
+XEN             := Xen
+XEN_OFFSET      := 0xA00000
 KERNEL		:= Image
 KERNEL_OFFSET	:= 0x80000
 LD_SCRIPT	:= model.lds.S
 IMAGE		:= linux-system.axf
+XIMAGE		:= xen-system.axf
 
 FILESYSTEM	:= filesystem.cpio.gz
 FS_OFFSET	:= 0x10000000
@@ -56,19 +59,29 @@ CC		:= $(CROSS_COMPILE)gcc
 LD		:= $(CROSS_COMPILE)ld
 DTC		:= $(if $(wildcard ./dtc), ./dtc, $(shell which dtc))
 
-all: $(IMAGE)
+all: $(IMAGE) $(XIMAGE)
 
 clean:
 	rm -f $(IMAGE) boot.o model.lds fdt.dtb
+	rm -f $(XIMAGE) boot.xen.o model.xen.lds
 
 $(IMAGE): boot.o model.lds fdt.dtb $(KERNEL) $(FILESYSTEM)
 	$(LD) -o $@ --script=model.lds
+
+$(XIMAGE): boot.xen.o model.xen.lds fdt.dtb $(XEN) $(KERNEL) $(FILESYSTEM)
+	$(LD) -o $@ --script=model.xen.lds
 
 boot.o: $(BOOTLOADER) Makefile
 	$(CC) $(CPPFLAGS) -DCNTFRQ=$(CNTFRQ) -DUART_BASE=$(UART_BASE) -DSYSREGS_BASE=$(SYSREGS_BASE) -DGIC_DIST_BASE=$(GIC_DIST_BASE) -DGIC_CPU_BASE=$(GIC_CPU_BASE) -c -o $@ $(BOOTLOADER)
 
 model.lds: $(LD_SCRIPT) Makefile
-	$(CC) $(CPPFLAGS) -DPHYS_OFFSET=$(PHYS_OFFSET) -DMBOX_OFFSET=$(MBOX_OFFSET) -DKERNEL_OFFSET=$(KERNEL_OFFSET) -DFDT_OFFSET=$(FDT_OFFSET) -DFS_OFFSET=$(FS_OFFSET) -DKERNEL=$(KERNEL) -DFILESYSTEM=$(FILESYSTEM) -E -P -C -o $@ $<
+	$(CC) $(CPPFLAGS) -DPHYS_OFFSET=$(PHYS_OFFSET) -DMBOX_OFFSET=$(MBOX_OFFSET) -DBOOT=boot.o -DKERNEL_OFFSET=$(KERNEL_OFFSET) -DFDT_OFFSET=$(FDT_OFFSET) -DFS_OFFSET=$(FS_OFFSET) -DKERNEL=$(KERNEL) -DFILESYSTEM=$(FILESYSTEM) -E -P -C -o $@ $<
+
+boot.xen.o: $(BOOTLOADER) Makefile
+	$(CC) $(CPPFLAGS) -DCNTFRQ=$(CNTFRQ) -DUART_BASE=$(UART_BASE) -DSYSREGS_BASE=$(SYSREGS_BASE) -DGIC_DIST_BASE=$(GIC_DIST_BASE) -DGIC_CPU_BASE=$(GIC_CPU_BASE) -c -o $@ $(BOOTLOADER) -DXEN
+
+model.xen.lds: $(LD_SCRIPT) Makefile
+	$(CC) $(CPPFLAGS) -DPHYS_OFFSET=$(PHYS_OFFSET) -DMBOX_OFFSET=$(MBOX_OFFSET) -DBOOT=boot.xen.o -DXEN_OFFSET=$(XEN_OFFSET) -DKERNEL_OFFSET=$(KERNEL_OFFSET) -DFDT_OFFSET=$(FDT_OFFSET) -DFS_OFFSET=$(FS_OFFSET) -DXEN=$(XEN) -DKERNEL=$(KERNEL) -DFILESYSTEM=$(FILESYSTEM) -E -P -C -o $@ $<
 
 ifeq ($(DTC),)
 	$(error No dtc found! You can git clone from git://git.jdl.com/software/dtc.git)

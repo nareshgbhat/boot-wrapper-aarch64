@@ -111,7 +111,11 @@ start_ns:
 	 * Primary CPU
 	 */
 	ldr	x0, =dtb			// device tree blob
+#ifdef XEN
+	b	xen
+#else
 	b	kernel
+#endif
 
 	.ltorg
 
