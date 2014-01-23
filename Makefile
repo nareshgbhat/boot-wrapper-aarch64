@@ -26,6 +26,7 @@ KERNEL_OFFSET	:= 0x80000
 LD_SCRIPT	:= model.lds.S
 IMAGE		:= linux-system.axf
 XIMAGE		:= xen-system.axf
+BUILD_DTB	:= n
 
 FILESYSTEM	:= filesystem.cpio.gz
 FS_OFFSET	:= 0x10000000
@@ -33,9 +34,11 @@ FILESYSTEM_START:= $(shell echo $$(($(PHYS_OFFSET) + $(FS_OFFSET))))
 FILESYSTEM_SIZE	:= $(shell stat -Lc %s $(FILESYSTEM) 2>/dev/null || echo 0)
 FILESYSTEM_END	:= $(shell echo $$(($(FILESYSTEM_START) + $(FILESYSTEM_SIZE))))
 
+ifeq ($(BUILD_DTB),y)
 FDT_SRC		:= rtsm_ve-aemv8a.dts
 FDT_INCL_REGEX	:= \(/include/[[:space:]]*"\)\([^"]\+\)\(".*\)
 FDT_DEPS	:= $(FDT_SRC) $(addprefix $(dir $(FDT_SRC)), $(shell sed -ne 'sq$(strip $(FDT_INCL_REGEX)q\2q p' < $(FDT_SRC))))
+endif
 FDT_OFFSET	:= 0x08000000
 
 BOOTARGS_COMMON	:= "console=ttyAMA0 earlyprintk=pl011,0x1c090000 $(BOOTARGS_EXTRA)"
@@ -62,7 +65,10 @@ DTC		:= $(if $(wildcard ./dtc), ./dtc, $(shell which dtc))
 all: $(IMAGE) $(XIMAGE)
 
 clean:
-	rm -f $(IMAGE) boot.o model.lds fdt.dtb
+	rm -f $(IMAGE) boot.o model.lds
+ifeq ($(BUILD_DTB),y)
+	rm -f fdt.dtb
+endif
 	rm -f $(XIMAGE) boot.xen.o model.xen.lds
 
 $(IMAGE): boot.o model.lds fdt.dtb $(KERNEL) $(FILESYSTEM)
@@ -83,12 +89,14 @@ boot.xen.o: $(BOOTLOADER) Makefile
 model.xen.lds: $(LD_SCRIPT) Makefile
 	$(CC) $(CPPFLAGS) -DPHYS_OFFSET=$(PHYS_OFFSET) -DMBOX_OFFSET=$(MBOX_OFFSET) -DBOOT=boot.xen.o -DXEN_OFFSET=$(XEN_OFFSET) -DKERNEL_OFFSET=$(KERNEL_OFFSET) -DFDT_OFFSET=$(FDT_OFFSET) -DFS_OFFSET=$(FS_OFFSET) -DXEN=$(XEN) -DKERNEL=$(KERNEL) -DFILESYSTEM=$(FILESYSTEM) -E -P -C -o $@ $<
 
+ifeq ($(BUILD_DTB),y)
 ifeq ($(DTC),)
 	$(error No dtc found! You can git clone from git://git.jdl.com/software/dtc.git)
 endif
 
 fdt.dtb: $(FDT_DEPS) Makefile
 	( echo "/include/ \"$(FDT_SRC)\"" ; echo "/ { $(CHOSEN_NODE) };" ) | $(DTC) -O dtb -o $@ -
+endif
 
 # The filesystem archive might not exist if INITRD is not being used
 .PHONY: all clean $(FILESYSTEM)
