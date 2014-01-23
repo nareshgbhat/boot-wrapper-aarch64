@@ -42,9 +42,9 @@ SECTIONS
 	. = PHYS_OFFSET + FDT_OFFSET;
 	dtb = .;
 	.dtb : { ./fdt.dtb }
+#ifdef USE_INITRD
 	. = PHYS_OFFSET + FS_OFFSET;
 	filesystem = .;
-#ifdef USE_INITRD
 	.filesystem : { FILESYSTEM }
 	fs_size = . - filesystem;
 #endif
