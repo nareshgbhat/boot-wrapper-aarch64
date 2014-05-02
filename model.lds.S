@@ -18,6 +18,10 @@ INPUT(XEN)
 INPUT(KERNEL)
 INPUT(./fdt.dtb)
 
+#ifdef USE_ACPI
+INPUT(ACPI)
+#endif
+
 #ifdef USE_INITRD
 INPUT(FILESYSTEM)
 #endif
@@ -42,6 +46,12 @@ SECTIONS
 	. = PHYS_OFFSET + FDT_OFFSET;
 	dtb = .;
 	.dtb : { ./fdt.dtb }
+	. = PHYS_OFFSET + ACPI_OFFSET;
+	acpi = .;
+#ifdef USE_ACPI
+	.acpi : { ACPI }
+#endif
+
 #ifdef USE_INITRD
 	. = PHYS_OFFSET + FS_OFFSET;
 	filesystem = .;
